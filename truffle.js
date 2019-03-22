@@ -12,7 +12,7 @@ module.exports = {
     },
     rinkeby: {
       provider: function() {
-        return new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/4528acb6d57d4bbb8fd0caa204e66464');
+        return new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/xxxx');
       },
       network_id: 4
     }
