@@ -15,7 +15,7 @@ const BN = require('bn.js')
 const RinkebyGatewayJSON = require('./src/Gateway.json')
 const CUETokenRinkebyJSON = require('./src/contracts/CUETokenRinkeby.json')
 const CUETokenJSON = require('./src/contracts/CUEToken.json')
-const CUETransfer = require('./src/contracts/CUETransfer.json')
+const CUETips = require('./src/contracts/CUETips.json')
 
 const TransferGateway = Contracts.TransferGateway
 const AddressMapper = Contracts.AddressMapper
@@ -122,8 +122,8 @@ async function getExtdevTokenBalance(web3js, accountAddress) {
 async function getExtdevTransferContract(web3js) {
   const networkId = await web3js.eth.net.getId()
   return new web3js.eth.Contract(
-    CUETransfer.abi,
-    CUETransfer.networks[networkId].address,
+    CUETips.abi,
+    CUETips.networks[networkId].address,
   )
 }
 
@@ -158,11 +158,11 @@ async function getTokenContract(web3js) {
 async function approveTransfer(web3js, accountAddress, amount) {
   const contract = await getExtdevCoinContract(web3js)
   const transferContract = await getExtdevTransferContract(web3js)
-  const cueTransferAddress = transferContract._address.toLowerCase()
+  const cueTipsAddress = transferContract._address.toLowerCase()
   const addr = accountAddress.toLowerCase()
-  console.log('APPROVING:', cueTransferAddress, addr, amount);
+  console.log('APPROVING:', cueTipsAddress, addr, amount);
   const response = await contract.methods
-    .approve(cueTransferAddress, (amount * coinMultiplier).toString())
+    .approve(cueTipsAddress, (amount * coinMultiplier).toString())
     .send({ from: addr })
   return response
 }
@@ -173,7 +173,7 @@ async function initiateTransfer(web3js, accountAddress, recipient, amount) {
   const recip = recipient.toLowerCase()
   console.log('TRANSFERRING:', addr, recip);
   const response = await contract.methods
-    .transferTokens(recip, (amount * coinMultiplier).toString())
+    .tip(recip, (amount * coinMultiplier).toString())
     .send({ from: addr })
   return response
 }
@@ -181,12 +181,12 @@ async function initiateTransfer(web3js, accountAddress, recipient, amount) {
 async function allowance(web3js, accountAddress) {
   const contract = await getExtdevCoinContract(web3js)
   const transferContract = await getExtdevTransferContract(web3js)
-  const cueTransferAddress = transferContract._address.toLowerCase()
+  const cueTipsAddress = transferContract._address.toLowerCase()
   const addr = accountAddress.toLowerCase()
-  console.log('CHECKING ALLOWANCE', addr, cueTransferAddress);
+  console.log('CHECKING ALLOWANCE', addr, cueTipsAddress);
   console.log(web3js);
   const response = await contract.methods
-  .allowance(addr, cueTransferAddress)
+  .allowance(addr, cueTipsAddress)
   .call({ from: addr })
   return response
 }

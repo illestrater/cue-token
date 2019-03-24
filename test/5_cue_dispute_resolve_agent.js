@@ -2,7 +2,8 @@ const BigNumber = require('bignumber.js');
 const moment = require('moment');
 const CUEToken = artifacts.require('CUEToken');
 const CUEBookings = artifacts.require('CUEBookings');
-const CUEDisputeResolution = artifacts.require('CUEDisputeResolution')
+const CUEDisputeResolution = artifacts.require('CUEDisputeResolution');
+const catchRevert = require('../test-utils/exceptions.js').catchRevert;
 
 const should = require('chai')
  .use(require('chai-as-promised'))
@@ -12,18 +13,18 @@ const should = require('chai')
 contract('CUEDisputeResolution (AGENT)', async (accounts) => {
   let token, bookings, disputes;
   let CUE_WALLET, BOOKINGS_WALLET, DISPUTE_WALLET;
-  let WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, RESOLVER_ONE, RESOLVER_TWO;
-  [WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, RESOLVER_ONE, RESOLVER_TWO] = accounts;
+  let WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, ARBITRATOR_ONE, ARBITRATOR_TWO;
+  [WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, ARBITRATOR_ONE, ARBITRATOR_TWO] = accounts;
 
   const now = moment(new Date());
   const ID = web3.utils.fromUtf8('1337');
-  const PAY = new BigNumber(30);
-  const DEPOSIT = PAY.div(5);
+  const PAY = new BigNumber(10e18);
+  const DEPOSIT = PAY.div(10);
   const SHARE = DEPOSIT.div(2);
   const START_TIME = new moment(now).add('4', 'days');
   const END_TIME = new moment(START_TIME).add('4', 'hours');
-  let agentBalance = new BigNumber(500);
-  let performerBalance = new BigNumber(500);
+  let agentBalance = new BigNumber(50e18);
+  let performerBalance = new BigNumber(50e18);
   let cueBalance = new BigNumber(0);
   let bookingsBalance = new BigNumber(0);
   let disputeBalance = new BigNumber(0);
@@ -78,8 +79,8 @@ contract('CUEDisputeResolution (AGENT)', async (accounts) => {
   });
 
   it('should set the owner for bookings and disputes', async () => {
-    await bookings.setCUEDisputeResolutionAddress(disputes.address, { from: WALLET });
-    await disputes.setCUEBookingsAddress(bookings.address, { from: WALLET });
+    await bookings.setDisputeResolutionAddress(disputes.address, { from: WALLET });
+    await disputes.setBookingsAddress(bookings.address, { from: WALLET });
 
     const bookingsAddress = await disputes.CUEBookingsAddress();
     bookingsAddress.should.equal(bookings.address);
@@ -138,30 +139,30 @@ contract('CUEDisputeResolution (AGENT)', async (accounts) => {
     dispute.deposit.toString().should.equal(DEPOSIT.toString());
   });
 
-  it('should add two resolvers to be able to resolve disputes', async() => {
-    bookings.addResolver(RESOLVER_ONE, web3.utils.fromUtf8('resolver 1'));
-    bookings.addResolver(RESOLVER_TWO, web3.utils.fromUtf8('resolver 2'));
+  it('should add two arbitrators to be able to resolve disputes', async() => {
+    bookings.addArbitrator(ARBITRATOR_ONE, web3.utils.fromUtf8('arbitrator 1'));
+    bookings.addArbitrator(ARBITRATOR_TWO, web3.utils.fromUtf8('arbitrator 2'));
 
-    const resolverCount = await disputes.getResolverCount();
-    resolverCount.toNumber().should.equal(2);
-    for (let i = 0; i < resolverCount.toNumber(); i++) {
-      const resolver = await disputes.resolversList(i);
+    const arbitratorCount = await disputes.getArbitratorCount();
+    arbitratorCount.toNumber().should.equal(2);
+    for (let i = 0; i < arbitratorCount.toNumber(); i++) {
+      const arbitrator = await disputes.arbitratorList(i);
       if (i === 0) {
-        resolver.toString().should.equal(RESOLVER_ONE);
+        arbitrator.toString().should.equal(ARBITRATOR_ONE);
       } else if (i === 1) {
-        resolver.toString().should.equal(RESOLVER_TWO);
+        arbitrator.toString().should.equal(ARBITRATOR_TWO);
       }
     }
 
-    let resolver;
-    resolver = await disputes.getResolver(RESOLVER_ONE);
-    web3.utils.toUtf8(resolver).should.equal('resolver 1');
-    resolver = await disputes.getResolver(RESOLVER_TWO);
-    web3.utils.toUtf8(resolver).should.equal('resolver 2');
+    let arbitrator;
+    arbitrator = await disputes.getArbitrator(ARBITRATOR_ONE);
+    web3.utils.toUtf8(arbitrator).should.equal('arbitrator 1');
+    arbitrator = await disputes.getArbitrator(ARBITRATOR_TWO);
+    web3.utils.toUtf8(arbitrator).should.equal('arbitrator 2');
   });
 
   it('should resolve dispute in favor of agent', async() => {
-    await disputes.resolveDispute(ID, false, { from: RESOLVER_ONE });
+    await disputes.resolveDispute(ID, false, { from: ARBITRATOR_ONE });
     cueBalance = cueBalance.plus(SHARE);
     agentBalance = agentBalance.plus(PAY).plus(SHARE);
     disputeBalance = disputeBalance.minus(PAY).minus(DEPOSIT);

@@ -12,18 +12,18 @@ const should = require('chai')
 contract('CUEDisputeResolution (PERFORMER)', async (accounts) => {
   let token, bookings, disputes;
   let CUE_WALLET, BOOKINGS_WALLET, DISPUTE_WALLET;
-  let WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, RESOLVER_ONE, RESOLVER_TWO;
-  [WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, RESOLVER_ONE, RESOLVER_TWO] = accounts;
+  let WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, ARBITRATOR_ONE, ARBITRATOR_TWO;
+  [WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, ARBITRATOR_ONE, ARBITRATOR_TWO] = accounts;
 
   const now = moment(new Date());
   const ID = web3.utils.fromUtf8('1337');
-  const PAY = new BigNumber(30);
-  const DEPOSIT = PAY.div(5);
+  const PAY = new BigNumber(10e18);
+  const DEPOSIT = PAY.div(10);
   const SHARE = DEPOSIT.div(2);
   const START_TIME = new moment(now).add('4', 'days');
   const END_TIME = new moment(START_TIME).add('4', 'hours');
-  let agentBalance = new BigNumber(500);
-  let performerBalance = new BigNumber(500);
+  let agentBalance = new BigNumber(50e18);
+  let performerBalance = new BigNumber(50e18);
   let cueBalance = new BigNumber(0);
   let bookingsBalance = new BigNumber(0);
   let disputeBalance = new BigNumber(0);
@@ -78,8 +78,8 @@ contract('CUEDisputeResolution (PERFORMER)', async (accounts) => {
   });
 
   it('should set the owner for bookings and disputes', async () => {
-    await bookings.setCUEDisputeResolutionAddress(disputes.address, { from: WALLET });
-    await disputes.setCUEBookingsAddress(bookings.address, { from: WALLET });
+    await bookings.setDisputeResolutionAddress(disputes.address, { from: WALLET });
+    await disputes.setBookingsAddress(bookings.address, { from: WALLET });
 
     const bookingsAddress = await disputes.CUEBookingsAddress();
     bookingsAddress.should.equal(bookings.address);
@@ -109,8 +109,8 @@ contract('CUEDisputeResolution (PERFORMER)', async (accounts) => {
     await acceptBooking();
     await checkBalances();
 
-    bookings.addResolver(RESOLVER_ONE, web3.utils.fromUtf8('resolver 1'));
-    bookings.addResolver(RESOLVER_TWO, web3.utils.fromUtf8('resolver 2'));
+    bookings.addArbitrator(ARBITRATOR_ONE, web3.utils.fromUtf8('arbitrator 1'));
+    bookings.addArbitrator(ARBITRATOR_TWO, web3.utils.fromUtf8('arbitrator 2'));
   });
 
   it('should adjust time forward to successful booking', async () => {
@@ -123,10 +123,18 @@ contract('CUEDisputeResolution (PERFORMER)', async (accounts) => {
   it('should resolve dispute in favor of performer', async() => {
     await createDispute();
     await checkBalances();
-    await disputes.resolveDispute(ID, true, { from: RESOLVER_TWO });
+    await disputes.resolveDispute(ID, true, { from: ARBITRATOR_TWO });
     cueBalance = cueBalance.plus(SHARE);
     performerBalance = performerBalance.plus(PAY).plus(SHARE);
     disputeBalance = disputeBalance.minus(PAY).minus(DEPOSIT);
     await checkBalances();
+  });
+
+  it('should remove all arbitrators', async() => {
+    await bookings.removeArbitrator(ARBITRATOR_ONE);
+    await bookings.removeArbitrator(ARBITRATOR_TWO);
+
+    const arbitratorCount = await disputes.getArbitratorCount();
+    arbitratorCount.toNumber().should.equal(0);
   });
 });

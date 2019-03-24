@@ -12,6 +12,11 @@ module.exports = {
     }
   },
   networks: {
+    development: {
+      host: "127.0.0.1",
+      port: 7545,
+      network_id: "*" // Match any network id
+    },
     loom_dapp_chain: {
       provider: function() {
         const privateKey = readFileSync(path.join(__dirname, 'private_key'), 'utf-8')

@@ -3,7 +3,7 @@ pragma solidity ^0.5.2;
 import 'openzeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 import 'openzeppelin-solidity/contracts/ownership/Ownable.sol';
 
-contract CUETransfer is Ownable {
+contract CUETips is Ownable {
   using SafeMath for uint256;
 
   address public CUEWallet = 0xa2B80aB01D4E0f10F724508E72713B3F53A0DECA;

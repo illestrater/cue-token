@@ -1,7 +1,19 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+node_modules
+app.db
+chaindata
+genesis.json
+loom
+
+# If you want to versioning build files (and it is recommended) you should remove or comment the line below
+src/contracts
+
+/rinkeby_private_key
+/rinkeby_account
+/rinkeby_mnemonic
+/extdev_private_key
+.DS_Store
 
 # dependencies
-/node_modules
 /.pnp
 .pnp.js
 
@@ -12,7 +24,6 @@
 /build
 
 # misc
-.DS_Store
 .env.local
 .env.development.local
 .env.test.local

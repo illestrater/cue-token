@@ -1,6 +1,6 @@
 var CUEToken = artifacts.require('CUEToken');
-var CUETransfer = artifacts.require('CUETransfer');
+var CUETips = artifacts.require('CUETips');
 
 module.exports = function(deployer) {
-  deployer.deploy(CUETransfer, CUEToken.address);
+  deployer.deploy(CUETips, CUEToken.address);
 };

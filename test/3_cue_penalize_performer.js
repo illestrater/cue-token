@@ -8,7 +8,7 @@ const should = require('chai')
  .use(require('chai-bignumber'))
  .should();
 
-contract('CUEBookings Penalize Agent', async (accounts) => {
+contract('CUEBookings Penalize Performer', async (accounts) => {
   let token, bookings;
   let WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, CUE_WALLET, BOOKINGS_WALLET;
   [WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS] = accounts;
@@ -71,28 +71,27 @@ contract('CUEBookings Penalize Agent', async (accounts) => {
     balance.toString().should.equal(performerBalance.toString());
   });
 
-  it ('should create future canceled booking', async () => {
+  it ('should create future declined booking', async () => {
     await createBooking();
     await acceptBooking();
     await checkBalances();
   });
 
-  it('should adjust time forward to within 48 hours of booking', async () => {
+  it('should adjust time forward to within 48 hours of event', async () => {
     const addTime = new moment(now).add('2', 'days').add('12', 'hours');
     const timeAdjustment = addTime.unix() - now.unix();
     await web3.currentProvider.send({ id: '1', jsonrpc: '2.0', method: 'evm_increaseTime', params: [timeAdjustment] }, (err, result) => {});
     await web3.currentProvider.send({ id: '1', jsonrpc: '2.0', method: 'evm_mine' }, (err, result) => {});
   });
 
-  it('should payout penalties for booked cancel (AGENT)', async () => {
-    await bookings.cancelBooking(ID, { from: AGENT_ADDRESS });
+  it('should payout penalties for booked decline (PERFORMER)', async () => {
+    await bookings.declineBooking(ID, { from: PERFORMER_ADDRESS });
     bookingsBalance = bookingsBalance.minus(PAY).minus(DEPOSIT);
-    agentBalance = agentBalance.plus(PAY).minus(DEPOSIT);
-    performerBalance = performerBalance.plus(DEPOSIT.times(2));
+    agentBalance = agentBalance.plus(PAY).plus(DEPOSIT);
     await checkBalances();
 
     const booking = await getBooking();
-    booking.status.should.equal('agent_reject_penalty');
+    booking.status.should.equal('performer_reject_penalty');
     booking.agent.should.equal(AGENT_ADDRESS);
     booking.performer.should.equal(PERFORMER_ADDRESS);
     booking.pay.toString().should.equal(PAY.toString());

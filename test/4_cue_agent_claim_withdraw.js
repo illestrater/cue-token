@@ -2,16 +2,19 @@ const BigNumber = require('bignumber.js');
 const moment = require('moment');
 const CUEToken = artifacts.require('CUEToken');
 const CUEBookings = artifacts.require('CUEBookings');
+const CUEDisputeResolution = artifacts.require('CUEDisputeResolution');
+const catchRevert = require('../test-utils/exceptions.js').catchRevert;
 
 const should = require('chai')
  .use(require('chai-as-promised'))
  .use(require('chai-bignumber'))
  .should();
 
-contract('CUEBookings Penalize Agent', async (accounts) => {
-  let token, bookings;
-  let WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, CUE_WALLET, BOOKINGS_WALLET;
-  [WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS] = accounts;
+contract('CUEDisputeResolution (AGENT)', async (accounts) => {
+  let token, bookings, disputes;
+  let CUE_WALLET, BOOKINGS_WALLET, DISPUTE_WALLET;
+  let WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, ARBITRATOR_ONE, ARBITRATOR_TWO;
+  [WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS, ARBITRATOR_ONE, ARBITRATOR_TWO] = accounts;
 
   const now = moment(new Date());
   const ID = web3.utils.fromUtf8('1337');
@@ -24,6 +27,7 @@ contract('CUEBookings Penalize Agent', async (accounts) => {
   let performerBalance = new BigNumber(50e18);
   let cueBalance = new BigNumber(0);
   let bookingsBalance = new BigNumber(0);
+  let disputeBalance = new BigNumber(0);
 
   const createBooking = async () => {
     await token.approve(bookings.address, PAY, { from: AGENT_ADDRESS });
@@ -48,15 +52,36 @@ contract('CUEBookings Penalize Agent', async (accounts) => {
     (await token.balanceOf(PERFORMER_ADDRESS)).toString().should.equal(performerBalance.toString());
     (await token.balanceOf(CUE_WALLET)).toString().should.equal(cueBalance.toString());
     (await token.balanceOf(BOOKINGS_WALLET)).toString().should.equal(bookingsBalance.toString());
+    (await token.balanceOf(DISPUTE_WALLET)).toString().should.equal(disputeBalance.toString());
   }
 
   beforeEach(async () => {
     await CUEToken.deployed().then(instance => token = instance);
+    await CUEDisputeResolution.deployed().then(instance => {
+      disputes = instance
+      DISPUTE_WALLET = instance.address;
+    });
+
     await CUEBookings.deployed(CUEToken.address).then(async instance => {
       bookings = instance
       CUE_WALLET = await instance.CUEWallet();
       BOOKINGS_WALLET = instance.address;
     });
+  });
+
+  it('should set the owner for bookings and disputes', async () => {
+    await bookings.setDisputeResolutionAddress(disputes.address, { from: WALLET });
+    await disputes.setBookingsAddress(bookings.address, { from: WALLET });
+
+    const bookingsAddress = await disputes.CUEBookingsAddress();
+    bookingsAddress.should.equal(bookings.address);
+    const bookingsOwner = await bookings.owner();
+    bookingsOwner.should.equal(WALLET);
+
+    const disputesOwner = await disputes.owner();
+    disputesOwner.should.equal(bookings.address);
+    const disputesAddress = await bookings.DisputeResolutionAddress();
+    disputesAddress.should.equal(disputes.address);
   });
 
   it('should send 500 tokens to agent and performer', async () => {
@@ -70,34 +95,41 @@ contract('CUEBookings Penalize Agent', async (accounts) => {
     balance = await token.balanceOf(PERFORMER_ADDRESS);
     balance.toString().should.equal(performerBalance.toString());
   });
-
-  it ('should create future canceled booking', async () => {
+  
+  it ('should create future successful booking', async () => {
     await createBooking();
     await acceptBooking();
     await checkBalances();
   });
 
-  it('should adjust time forward to within 48 hours of booking', async () => {
-    const addTime = new moment(now).add('2', 'days').add('12', 'hours');
+  it('should adjust time forward to successful booking', async () => {
+    const addTime = new moment(now).add('5', 'days');
     const timeAdjustment = addTime.unix() - now.unix();
     await web3.currentProvider.send({ id: '1', jsonrpc: '2.0', method: 'evm_increaseTime', params: [timeAdjustment] }, (err, result) => {});
     await web3.currentProvider.send({ id: '1', jsonrpc: '2.0', method: 'evm_mine' }, (err, result) => {});
   });
 
-  it('should payout penalties for booked cancel (AGENT)', async () => {
-    await bookings.cancelBooking(ID, { from: AGENT_ADDRESS });
+  it('should NOT create a dispute if agent does not create a claim', async () => {
+    await catchRevert(bookings.performerClaim(ID, { from: PERFORMER_ADDRESS }));
+  });
+
+  it('should allow agent to withdraw if no claim is made', async () => {
+    await bookings.agentClaim(ID, { from: AGENT_ADDRESS });
+    const agentClaim = await getBooking();
+    agentClaim.status.should.equal('agent_claim');
+
+    const addTime = new moment(now).add('3', 'days');
+    const timeAdjustment = addTime.unix() - now.unix();
+    await web3.currentProvider.send({ id: '1', jsonrpc: '2.0', method: 'evm_increaseTime', params: [timeAdjustment] }, (err, result) => {});
+    await web3.currentProvider.send({ id: '1', jsonrpc: '2.0', method: 'evm_mine' }, (err, result) => {});
+
+    await bookings.withdrawPayUnclaimed(ID, { from: AGENT_ADDRESS });
+    agentBalance = agentBalance.plus(PAY);
+    performerBalance = performerBalance.plus(DEPOSIT);
     bookingsBalance = bookingsBalance.minus(PAY).minus(DEPOSIT);
-    agentBalance = agentBalance.plus(PAY).minus(DEPOSIT);
-    performerBalance = performerBalance.plus(DEPOSIT.times(2));
     await checkBalances();
 
     const booking = await getBooking();
-    booking.status.should.equal('agent_reject_penalty');
-    booking.agent.should.equal(AGENT_ADDRESS);
-    booking.performer.should.equal(PERFORMER_ADDRESS);
-    booking.pay.toString().should.equal(PAY.toString());
-    booking.deposit.toString().should.equal(DEPOSIT.toString());
-    booking.startTime.toString().should.equal(START_TIME.unix().toString());
-    booking.endTime.toString().should.equal(END_TIME.unix().toString());
+    booking.status.should.equal('agent_claim_withdraw');
   });
 });

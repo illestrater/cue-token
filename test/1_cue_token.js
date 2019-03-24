@@ -1,6 +1,6 @@
 const BigNumber = require('bignumber.js');
 const CUEToken = artifacts.require('CUEToken');
-const CUETransfer = artifacts.require('CUETransfer');
+const CUETips = artifacts.require('CUETips');
 
 const should = require('chai')
  .use(require('chai-as-promised'))
@@ -9,13 +9,13 @@ const should = require('chai')
 
 let token, transfer, cueWallet;
 
-contract('CUEToken and CUETransfer', async (accounts) => {
+contract('CUEToken and CUETips', async (accounts) => {
   let accountA, accountB, accountC;
   [accountA, accountB, accountC] = accounts;
 
   beforeEach(async () => {
     await CUEToken.deployed().then(instance => token = instance);
-    await CUETransfer.deployed(CUEToken.address).then(async instance => {
+    await CUETips.deployed(CUEToken.address).then(async instance => {
       transfer = instance
       cueWallet = await instance.CUEWallet();
     });

@@ -2,6 +2,7 @@ const BigNumber = require('bignumber.js');
 const moment = require('moment');
 const CUEToken = artifacts.require('CUEToken');
 const CUEBookings = artifacts.require('CUEBookings');
+const catchRevert = require('../test-utils/exceptions.js').catchRevert;
 
 const should = require('chai')
  .use(require('chai-as-promised'))
@@ -14,33 +15,32 @@ contract('CUEBookings', async (accounts) => {
   [WALLET, AGENT_ADDRESS, PERFORMER_ADDRESS] = accounts;
 
   const now = moment(new Date());
-  const ID = web3.utils.fromUtf8('1337');
-  const PAY = new BigNumber(30);
-  const DEPOSIT = PAY.div(5);
+  const PAY = new BigNumber(1e18);
+  const DEPOSIT = PAY.div(10);
   const SHARE = DEPOSIT.div(2);
   const START_TIME = new moment(now).add('4', 'days');
   const END_TIME = new moment(START_TIME).add('4', 'hours');
-  let agentBalance = new BigNumber(500);
-  let performerBalance = new BigNumber(500);
+  let agentBalance = new BigNumber(50e18);
+  let performerBalance = new BigNumber(50e18);
   let cueBalance = new BigNumber(0);
   let bookingsBalance = new BigNumber(0);
 
-  const createBooking = async () => {
+  const createBooking = async (id) => {
     await token.approve(bookings.address, PAY, { from: AGENT_ADDRESS });
-    await bookings.newBooking(ID, PERFORMER_ADDRESS, PAY, START_TIME.unix(), END_TIME.unix(), { from: AGENT_ADDRESS });
+    await bookings.newBooking(id, PERFORMER_ADDRESS, PAY, START_TIME.unix(), END_TIME.unix(), { from: AGENT_ADDRESS });
     agentBalance = agentBalance.minus(PAY);
     bookingsBalance = bookingsBalance.plus(PAY);
   }
   
-  const acceptBooking = async () => {
+  const acceptBooking = async (id) => {
     await token.approve(bookings.address, DEPOSIT, { from: PERFORMER_ADDRESS });
-    await bookings.acceptBooking(ID, { from: PERFORMER_ADDRESS });
+    await bookings.acceptBooking(id, { from: PERFORMER_ADDRESS });
     performerBalance = performerBalance.minus(DEPOSIT);
     bookingsBalance = bookingsBalance.plus(DEPOSIT);
   }
 
-  const getBooking = async () => {
-    return await bookings.getBooking(ID);
+  const getBooking = async (id) => {
+    return await bookings.getBooking(id);
   }
 
   const checkBalances = async () => {
@@ -72,10 +72,11 @@ contract('CUEBookings', async (accounts) => {
   });
 
   it('should request new booking for 30 tokens (AGENT)', async () => {
-    await createBooking();
-    const booking = await getBooking();
+    const id = web3.utils.fromUtf8('one');
+    await createBooking(id);
     await checkBalances();
 
+    const booking = await getBooking(id);
     booking.status.should.equal('requested');
     booking.agent.should.equal(AGENT_ADDRESS);
     booking.performer.should.equal(PERFORMER_ADDRESS);
@@ -85,14 +86,21 @@ contract('CUEBookings', async (accounts) => {
     booking.endTime.toString().should.equal(END_TIME.unix().toString());
   });
 
+  it('should not allow multiple bookings with same ID', async () => {
+    const id = web3.utils.fromUtf8('one');
+    await token.approve(bookings.address, PAY, { from: AGENT_ADDRESS });
+    await catchRevert(bookings.newBooking(id, PERFORMER_ADDRESS, PAY, START_TIME.unix(), END_TIME.unix(), { from: AGENT_ADDRESS }));
+  });
+
   it('should cancel request before booking (AGENT)', async () => {
-    await createBooking();
-    await bookings.cancelBooking(ID, { from: AGENT_ADDRESS });
+    const id = web3.utils.fromUtf8('two');
+    await createBooking(id);
+    await bookings.cancelBooking(id, { from: AGENT_ADDRESS });
     bookingsBalance = bookingsBalance.minus(PAY);
     agentBalance = agentBalance.plus(PAY);
     await checkBalances();
 
-    const booking = await getBooking();
+    const booking = await getBooking(id);
     booking.status.should.equal('agent_reject');
     booking.agent.should.equal(AGENT_ADDRESS);
     booking.performer.should.equal(PERFORMER_ADDRESS);
@@ -103,16 +111,17 @@ contract('CUEBookings', async (accounts) => {
   });
 
   it('should cancel request after booking (AGENT)', async () => {
-    await createBooking();
-    await acceptBooking();
+    const id = web3.utils.fromUtf8('three');
+    await createBooking(id);
+    await acceptBooking(id);
 
-    await bookings.cancelBooking(ID, { from: AGENT_ADDRESS });
+    await bookings.cancelBooking(id, { from: AGENT_ADDRESS });
     bookingsBalance = bookingsBalance.minus(PAY).minus(DEPOSIT);
     agentBalance = agentBalance.plus(PAY);
     performerBalance = performerBalance.plus(DEPOSIT);
     await checkBalances();
 
-    const booking = await getBooking();
+    const booking = await getBooking(id);
     booking.status.should.equal('agent_reject');
     booking.agent.should.equal(AGENT_ADDRESS);
     booking.performer.should.equal(PERFORMER_ADDRESS);
@@ -123,13 +132,14 @@ contract('CUEBookings', async (accounts) => {
   });
 
   it('should decline request before booking (PERFORMER)', async () => {
-    await createBooking();
-    await bookings.declineBooking(ID, { from: PERFORMER_ADDRESS });
+    const id = web3.utils.fromUtf8('four');
+    await createBooking(id);
+    await bookings.declineBooking(id, { from: PERFORMER_ADDRESS });
     bookingsBalance = bookingsBalance.minus(PAY);
     agentBalance = agentBalance.plus(PAY);
     await checkBalances();
     
-    const booking = await getBooking();
+    const booking = await getBooking(id);
     booking.status.should.equal('performer_reject');
     booking.agent.should.equal(AGENT_ADDRESS);
     booking.performer.should.equal(PERFORMER_ADDRESS);
@@ -140,16 +150,17 @@ contract('CUEBookings', async (accounts) => {
   });
 
   it('should decline request after booking (PERFORMER)', async () => {
-    await createBooking();
-    await acceptBooking();
+    const id = web3.utils.fromUtf8('five');
+    await createBooking(id);
+    await acceptBooking(id);
 
-    await bookings.declineBooking(ID, { from: PERFORMER_ADDRESS });
+    await bookings.declineBooking(id, { from: PERFORMER_ADDRESS });
     bookingsBalance = bookingsBalance.minus(PAY).minus(DEPOSIT);
     agentBalance = agentBalance.plus(PAY);
     performerBalance = performerBalance.plus(DEPOSIT);
     await checkBalances();
 
-    const booking = await getBooking();
+    const booking = await getBooking(id);
     booking.status.should.equal('performer_reject');
     booking.agent.should.equal(AGENT_ADDRESS);
     booking.performer.should.equal(PERFORMER_ADDRESS);
@@ -160,11 +171,12 @@ contract('CUEBookings', async (accounts) => {
   });
 
   it('should accept booking (PERFORMER)', async () => {
-    await createBooking();
-    await acceptBooking();
+    const id = web3.utils.fromUtf8('six');
+    await createBooking(id);
+    await acceptBooking(id);
     await checkBalances();
 
-    const booking = await getBooking();
+    const booking = await getBooking(id);
     booking.status.should.equal('booked');
     booking.agent.should.equal(AGENT_ADDRESS);
     booking.performer.should.equal(PERFORMER_ADDRESS);
@@ -175,8 +187,9 @@ contract('CUEBookings', async (accounts) => {
   });
   
   it ('should create future successful booking', async () => {
-    await createBooking();
-    await acceptBooking();
+    const id = web3.utils.fromUtf8('seven');
+    await createBooking(id);
+    await acceptBooking(id);
     await checkBalances();
   });
 
@@ -188,13 +201,14 @@ contract('CUEBookings', async (accounts) => {
   })
 
   it('should payout pay and share', async () => {
-    await bookings.withdrawPay(ID, { from: PERFORMER_ADDRESS });
+    const id = web3.utils.fromUtf8('seven');
+    await bookings.withdrawPay(id, { from: PERFORMER_ADDRESS });
     bookingsBalance = bookingsBalance.minus(PAY).minus(DEPOSIT);
     performerBalance = performerBalance.plus(PAY.plus(SHARE));
     cueBalance = cueBalance.plus(SHARE);
     await checkBalances();
 
-    const booking = await getBooking();
+    const booking = await getBooking(id);
     booking.status.should.equal('completed');
     booking.agent.should.equal(AGENT_ADDRESS);
     booking.performer.should.equal(PERFORMER_ADDRESS);

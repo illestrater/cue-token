@@ -2,7 +2,7 @@ pragma solidity ^0.5.2;
 
 import 'openzeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 import 'openzeppelin-solidity/contracts/ownership/Ownable.sol';
-import './CUETransfer.sol';
+import './CUETips.sol';
 
 contract CUEDisputeResolution is Ownable {
   using SafeMath for uint256;
@@ -19,42 +19,44 @@ contract CUEDisputeResolution is Ownable {
     uint256 deposit;
   }
 
-  mapping (address => bytes32) private resolvers;
   mapping (bytes12 => Dispute) private disputes;
-  address[] public resolversList;
+  mapping (address => bytes32) private arbitrators;
+  address[] public arbitratorList;
 
   constructor(address _CUETokenAddress) public {
     CUEToken = ERC20(_CUETokenAddress);
     transferOwnership(msg.sender);
   }
 
-  function setCUEBookingsAddress(address _CUEBookingsAddress) public onlyOwner() {
+  function setBookingsAddress(address _CUEBookingsAddress) public onlyOwner() {
     CUEBookingsAddress = _CUEBookingsAddress;
     transferOwnership(CUEBookingsAddress);
   }
 
   event NewDispute(bytes12 id, string status, address agent, address performer, uint256 pay, uint256 deposit);
 
-  function addResolver(address _resolver, bytes32 _resolverName) public onlyOwner() {
-    resolvers[_resolver] = _resolverName;
-    resolversList.push(_resolver) -1;
+  function addArbitrator(address _arbitrator, bytes32 _abitratorName) public onlyOwner() {
+    arbitrators[_arbitrator] = _abitratorName;
+    arbitratorList.push(_arbitrator) -1;
   }
 
-  function removeResolver(address _resolver) public onlyOwner() {
-    for (uint i = 0; i < resolversList.length - 1; i++) {
-      if (resolversList[i] == _resolver) {
-        delete resolversList[i];
+  function removeArbitrator(address _arbitrator) public onlyOwner() {
+    for (uint i = 0; i < arbitratorList.length; i++) {
+      if (arbitratorList[i] == _arbitrator) {
+        arbitratorList[i] = arbitratorList[arbitratorList.length - 1];
+        delete arbitratorList[arbitratorList.length - 1];
+        arbitratorList.length--;
       }
     }
-    delete resolvers[_resolver];
+    delete arbitrators[_arbitrator];
   }
 
-  function getResolverCount() public view returns (uint count) {
-    return resolversList.length;
+  function getArbitratorCount() public view returns (uint count) {
+    return arbitratorList.length;
   }
 
-  function getResolver(address _resolver) public view returns (bytes32 resolver) {
-    return resolvers[_resolver];
+  function getArbitrator(address _arbitrator) public view returns (bytes32 arbitrator) {
+    return arbitrators[_arbitrator];
   }
 
   function createDispute(bytes12 _id, address _agent, address _performer, uint256 _pay, uint256 _deposit) public onlyOwner() {
@@ -79,7 +81,7 @@ contract CUEDisputeResolution is Ownable {
   }
 
   function resolveDispute(bytes12 _id, bool _didPerformerWin) public {
-    require(resolvers[msg.sender].length != 0);
+    require(arbitrators[msg.sender].length != 0);
     Dispute storage dispute = disputes[_id];
 
     if (_didPerformerWin) {

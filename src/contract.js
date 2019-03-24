@@ -4,9 +4,8 @@ import {
 
 import Web3 from 'web3'
 import CUEToken from './contracts/CUEToken.json'
-import CUETransfer from './contracts/CUETransfer.json'
+import CUETips from './contracts/CUETips.json'
 import BN from 'bn.js'
-import bip39 from 'bip39';
 import _pbkdf2 from 'pbkdf2';
 const pbkdf2 = _pbkdf2.pbkdf2Sync
 import unorm from 'unorm';
@@ -77,13 +76,13 @@ export default class Contract {
       { from: this.currentUserAddress }
     )
 
-    this.CUETransferInstance = new this.web3.eth.Contract(
-      CUETransfer.abi,
-      CUETransfer.networks[networkId].address,
+    this.CUETipsInstance = new this.web3.eth.Contract(
+      CUETips.abi,
+      CUETips.networks[networkId].address,
       { from: this.currentUserAddress }
     )
 
-    this.CUETransferInstance.events.TransferSuccessful((err, event) => {
+    this.CUETipsInstance.events.TransferSuccessful((err, event) => {
       if (err) console.error('Error on event', err)
       else if (this.onEvent) {
         console.log('transfer successful', event);
@@ -109,18 +108,18 @@ export default class Contract {
 
   async tip(address, amount) {
     const approvalResponse = await this.CUETokenInstance.methods
-      .approve(this.CUETransferInstance._address.toLowerCase(), (amount * coinMultiplier).toString())
+      .approve(this.CUETipsInstance._address.toLowerCase(), (amount * coinMultiplier).toString())
       .send({ from: this.currentUserAddress.toLowerCase() })
 
-    const response = await this.CUETransferInstance.methods
-      .transferTokens(address.toLowerCase(), (amount * coinMultiplier).toString())
+    const response = await this.CUETipsInstance.methods
+      .tip(address.toLowerCase(), (amount * coinMultiplier).toString())
       .send({ from: this.currentUserAddress.toLowerCase() })
 
     return response
   }
 
   // const allowanceResponse = await this.CUETokenInstance.methods
-  //   .allowance(this.currentUserAddress.toLowerCase(), this.CUETransferInstance._address.toLowerCase())
+  //   .allowance(this.currentUserAddress.toLowerCase(), this.CUETipsInstance._address.toLowerCase())
   //   .call({ from: this.currentUserAddress.toLowerCase() })
   // console.log('allowance', allowanceResponse, (amount * coinMultiplier).toString());
 }
