@@ -13,8 +13,8 @@ const { OfflineWeb3Signer } = require('loom-js/dist/solidity-helpers')
 const BN = require('bn.js')
 
 const RinkebyGatewayJSON = require('./src/Gateway.json')
-const CUETokenRinkebyJSON = require('./src/contracts/CUETokenRinkeby.json')
-const CUETokenJSON = require('./src/contracts/CUEToken.json')
+const CUETokenRinkebyJSON = require('./src/contracts/CUEToken.json')
+const CUETokenJSON = require('./src/contracts/CUETokenLoom.json')
 const CUETips = require('./src/contracts/CUETips.json')
 
 const TransferGateway = Contracts.TransferGateway

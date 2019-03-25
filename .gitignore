@@ -11,6 +11,7 @@ src/contracts
 /rinkeby_account
 /rinkeby_mnemonic
 /extdev_private_key
+/extdev_public_key
 .DS_Store
 
 # dependencies
